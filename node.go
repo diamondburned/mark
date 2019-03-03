@@ -201,17 +201,20 @@ type CodeNode struct {
 
 // Return the html representation of codeBlock
 func (n *CodeNode) Render() string {
+	esc := strings.NewReplacer("<", "&lt;", ">", "&gt;", "\"", "&quot;", "&", "&amp;")
+
 	var attr string
 	if n.Lang != "" {
-		attr = fmt.Sprintf(" class=\"lang-%s\"", n.Lang)
+		attr = esc.Replace(fmt.Sprintf(" class=\"lang-%s\"", n.Lang))
 	}
-	code := fmt.Sprintf("<%[1]s%s>%s</%[1]s>", "code", attr, n.Text)
+
+	// DRY: see `escape()` below
+	code := esc.Replace(fmt.Sprintf("<%[1]s%s>%s</%[1]s>", "code", attr, n.Text))
+
 	return wrap("pre", code)
 }
 
 func (p *parse) newCode(pos Pos, lang, text string) *CodeNode {
-	// DRY: see `escape()` below
-	text = strings.NewReplacer("<", "&lt;", ">", "&gt;", "\"", "&quot;", "&", "&amp;").Replace(text)
 	return &CodeNode{NodeType: NodeCode, Pos: pos, Lang: lang, Text: text}
 }
 
