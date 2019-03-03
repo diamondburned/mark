@@ -1,3 +1,9 @@
+# Mark fork
+
+This fork was made because the old one was retarded and the options didn't really work. It was also too HTML-focused, which I didn't like. So I changed parts of the code to fit my needs. Just check godoc for more info.
+
+## Old readme:
+
 # Mark [![Test coverage][coveralls-image]][coveralls-url] [![Build status][travis-image]][travis-url] [![Go doc][doc-image]][doc-url] [![license](http://img.shields.io/badge/license-MIT-blue.svg)](https://raw.githubusercontent.com/a8m/mark/master/LICENSE)
 > A [markdown](http://daringfireball.net/projects/markdown/) processor written in Go. built for fun.
 
