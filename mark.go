@@ -13,12 +13,13 @@ type Mark struct {
 // smartypants and smartfractions rendering.
 type Options struct {
 	// Things to parse
-	Link  bool
-	Image bool
-	Table bool
-	List  bool
-	HTML  bool
-	Gfm   bool
+	Headings bool
+	Link     bool
+	Image    bool
+	Table    bool
+	List     bool
+	HTML     bool
+	Gfm      bool
 
 	// Extensions
 	EscapeHTML  bool

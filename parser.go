@@ -51,7 +51,7 @@ Loop:
 			n = p.newHTML(t.pos, t.val)
 		case t.typ == itemDefLink:
 			n = p.parseDefLink()
-		case t.typ == itemHeading || t.typ == itemLHeading:
+		case (t.typ == itemHeading || t.typ == itemLHeading) && p.options.Headings:
 			n = p.parseHeading()
 		case t.typ == itemCodeBlock || t.typ == itemGfmCodeBlock:
 			n = p.parseCodeBlock()
