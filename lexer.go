@@ -73,13 +73,20 @@ type lexer struct {
 	width   Pos       // width of last rune read from input
 	lastPos Pos       // position of most recent item returned by nextItem
 	items   chan item // channel of scanned items
+	options lexerOptions
+}
+
+type lexerOptions struct {
+	Table bool
+	List  bool
 }
 
 // lex creates a new lexer for the input string.
-func lex(input string) *lexer {
+func lex(input string, lo lexerOptions) *lexer {
 	l := &lexer{
-		input: input,
-		items: make(chan item),
+		input:   input,
+		items:   make(chan item),
+		options: lo,
 	}
 	go l.run()
 	return l
@@ -118,22 +125,32 @@ func (l *lexer) next() rune {
 // lexAny scanner is kind of forwarder, it get the current char in the text
 // and forward it to the appropriate scanner based on some conditions.
 func lexAny(l *lexer) stateFn {
-	switch r := l.peek(); r {
-	case '*', '-', '_':
+	switch r := l.peek(); {
+	case r == '*' || r == '-' || r == '_':
 		return lexHr
-	case '+', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+	case (r == '+' ||
+		r == '0' ||
+		r == '1' ||
+		r == '2' ||
+		r == '3' ||
+		r == '4' ||
+		r == '5' ||
+		r == '6' ||
+		r == '7' ||
+		r == '8' ||
+		r == '9') && l.options.List:
 		return lexList
-	case '<':
+	case r == '<':
 		return lexHTML
-	case '>':
+	case r == '>':
 		return lexBlockQuote
-	case '[':
+	case r == '[':
 		return lexDefLink
-	case '#':
+	case r == '#':
 		return lexHeading
-	case '`', '~':
+	case r == '`' || r == '~':
 		return lexGfmCode
-	case ' ':
+	case r == ' ':
 		if reCodeBlock.MatchString(l.input[l.pos:]) {
 			return lexCode
 		} else if reGfmCode.MatchString(l.input[l.pos:]) {
@@ -144,7 +161,7 @@ func lexAny(l *lexer) stateFn {
 		}
 		l.emit(itemIndent)
 		return lexAny
-	case '|':
+	case r == '|' && l.options.Table:
 		if m := reTable.itemLp.MatchString(l.input[l.pos:]); m {
 			l.emit(itemLpTable)
 			return lexTable
@@ -180,7 +197,12 @@ func lexHr(l *lexer) stateFn {
 		l.emit(itemHr)
 		return lexAny
 	}
-	return lexList
+
+	if l.options.List {
+		return lexList
+	}
+
+	return lexText
 }
 
 // lexGfmCode test if the current text position is start of GFM code-block item.

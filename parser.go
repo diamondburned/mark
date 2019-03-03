@@ -11,6 +11,7 @@ import (
 type parse struct {
 	Nodes     []Node
 	lex       Lexer
+	lexList   bool
 	options   *Options
 	tr        *parse
 	output    string
@@ -21,10 +22,13 @@ type parse struct {
 }
 
 // Return new parser
-func newParse(input string, opts *Options) *parse {
+func newParse(input string, opts *Options, lo lexerOptions) *parse {
+	var lexlist = lo.List
+
 	return &parse{
-		lex:      lex(input),
+		lex:      lex(input, lo),
 		options:  opts,
+		lexList:  lexlist,
 		links:    make(map[string]*DefLinkNode),
 		renderFn: make(map[NodeType]RenderFn),
 	}
@@ -35,32 +39,29 @@ func (p *parse) parse() {
 Loop:
 	for {
 		var n Node
-		switch t := p.peek(); t.typ {
-		case itemEOF, itemError:
+		switch t := p.peek(); {
+		case t.typ == itemEOF || t.typ == itemError:
 			break Loop
-		case itemNewLine:
+		case t.typ == itemNewLine:
 			p.next()
-		case itemHr:
+		case t.typ == itemHr:
 			n = p.newHr(p.next().pos)
-		case itemHTML:
+		case t.typ == itemHTML:
 			t = p.next()
 			n = p.newHTML(t.pos, t.val)
-		case itemDefLink:
+		case t.typ == itemDefLink:
 			n = p.parseDefLink()
-		case itemHeading, itemLHeading:
+		case t.typ == itemHeading || t.typ == itemLHeading:
 			n = p.parseHeading()
-		case itemCodeBlock, itemGfmCodeBlock:
+		case t.typ == itemCodeBlock || t.typ == itemGfmCodeBlock:
 			n = p.parseCodeBlock()
-		case itemList:
+		case t.typ == itemList:
 			n = p.parseList()
-		case itemTable, itemLpTable:
-			// n = p.parseTable()
-			tmp := p.newParagraph(t.pos)
-			tmp.Nodes = p.parseText(p.next().val + p.scanLines())
-			n = tmp
-		case itemBlockQuote:
+		case (t.typ == itemTable || t.typ == itemLpTable) && p.options.Table:
+			n = p.parseTable()
+		case t.typ == itemBlockQuote:
 			n = p.parseBlockQuote()
-		case itemIndent:
+		case t.typ == itemIndent:
 			space := p.next()
 			// If it isn't followed by itemText
 			if p.peek().typ != itemText {
@@ -145,27 +146,28 @@ func (p *parse) backup2(t1 item) {
 // parseText
 func (p *parse) parseText(input string) (nodes []Node) {
 	// Trim whitespaces that not a line-break
-	input = regexp.MustCompile(`(?m)^ +| +(\n|$)`).ReplaceAllStringFunc(input, func(s string) string {
-		if reBr.MatchString(s) {
-			return s
-		}
-		return strings.Replace(s, " ", "", -1)
-	})
+	//input = regexp.MustCompile(`(?m)^ +| +(\n|$)`).ReplaceAllStringFunc(input, func(s string) string {
+	//if reBr.MatchString(s) {
+	//return s
+	//}
+	//return strings.Replace(s, " ", "", -1)
+	//})
 	l := lexInline(input)
 	for token := range l.items {
 		var node Node
-		switch token.typ {
-		case itemBr:
+		switch t := token.typ; {
+		case t == itemBr:
 			node = p.newBr(token.pos)
-		case itemStrong, itemItalic, itemStrike, itemCode:
+
+		case t == itemStrong || t == itemItalic || t == itemStrike || t == itemCode:
 			node = p.parseEmphasis(token.typ, token.pos, token.val)
-		case itemLink, itemAutoLink, itemGfmLink:
+
+		case t == itemLink || t == itemAutoLink || t == itemGfmLink:
 			var title, href string
 			var text []Node
 			if token.typ == itemLink {
 				match := reLink.FindStringSubmatch(token.val)
-				text = p.parseText(match[1])
-				href, title = match[2], match[3]
+				href, title = match[2], match[1]
 			} else {
 				var match []string
 				if token.typ == itemGfmLink {
@@ -177,10 +179,12 @@ func (p *parse) parseText(input string) (nodes []Node) {
 				text = append(text, p.newText(token.pos, match[1]))
 			}
 			node = p.newLink(token.pos, title, href, text...)
-		case itemImage:
+
+		case t == itemImage && p.options.Image:
 			match := reImage.FindStringSubmatch(token.val)
 			node = p.newImage(token.pos, match[3], match[2], match[1])
-		case itemRefLink, itemRefImage:
+
+		case (t == itemRefLink || t == itemRefImage) && p.options.Link:
 			match := reRefLink.FindStringSubmatch(token.val)
 			text, ref := match[1], match[2]
 			if ref == "" {
@@ -191,8 +195,10 @@ func (p *parse) parseText(input string) (nodes []Node) {
 			} else {
 				node = p.newRefImage(token.typ, token.pos, token.val, ref, text)
 			}
-		case itemHTML:
+
+		case t == itemHTML && p.options.HTML:
 			node = p.newHTML(token.pos, token.val)
+
 		default:
 			node = p.newText(token.pos, token.val)
 		}
@@ -279,7 +285,7 @@ func (p *parse) parseBlockQuote() (n *BlockQuoteNode) {
 	re := regexp.MustCompile(`(?m)^ *> ?`)
 	raw := re.ReplaceAllString(token.val, "")
 	// TODO(a8m): doesn't work right now with defLink(inside the blockQuote)
-	tr := &parse{lex: lex(raw), tr: p}
+	tr := &parse{lex: lex(raw, lexerOptions{}), tr: p}
 	tr.parse()
 	n = p.newBlockQuote(token.pos)
 	n.Nodes = tr.Nodes
@@ -311,7 +317,9 @@ func (p *parse) parseListItem() *ListItemNode {
 		item.Nodes = p.parseTaskItem(token)
 		return item
 	}
-	tr := &parse{lex: lex(token.val), tr: p}
+	tr := &parse{lex: lex(token.val, lexerOptions{
+		List: p.lexList,
+	}), tr: p}
 	tr.parse()
 	for _, node := range tr.Nodes {
 		// wrap with paragraph only when it's a loose item

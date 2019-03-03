@@ -12,8 +12,16 @@ type Mark struct {
 // set `Smartypants` and `Fractions` to true to enable
 // smartypants and smartfractions rendering.
 type Options struct {
-	Gfm         bool
-	Tables      bool
+	// Things to parse
+	Link  bool
+	Image bool
+	Table bool
+	List  bool
+	HTML  bool
+	Gfm   bool
+
+	// Extensions
+	EscapeHTML  bool
 	Smartypants bool
 	Fractions   bool
 }
@@ -22,8 +30,13 @@ type Options struct {
 // it's means that only Gfm, and Tables set to true.
 func DefaultOptions() *Options {
 	return &Options{
-		Gfm:    true,
-		Tables: true,
+		Image:      true,
+		Link:       true,
+		HTML:       true,
+		List:       true,
+		Table:      true,
+		Gfm:        true,
+		EscapeHTML: true,
 	}
 }
 
@@ -36,7 +49,10 @@ func New(input string, opts *Options) *Mark {
 	}
 	return &Mark{
 		Input: input,
-		parse: newParse(input, opts),
+		parse: newParse(input, opts, lexerOptions{
+			Table: opts.Table,
+			List:  opts.List,
+		}),
 	}
 }
 

@@ -545,11 +545,15 @@ func (p *parse) text(input string) string {
 	if opts.Fractions {
 		input = smartyfractions(input)
 	}
-	return escape(input)
+	return escape(input, p.options)
 }
 
 // Helper escaper
-func escape(str string) (cpy string) {
+func escape(str string, ops *Options) (cpy string) {
+	if ops != nil && !ops.EscapeHTML {
+		return str
+	}
+
 	emp := regexp.MustCompile(`&\w+;`)
 	for i := 0; i < len(str); i++ {
 		switch s := str[i]; s {
