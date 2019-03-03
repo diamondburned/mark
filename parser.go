@@ -54,7 +54,10 @@ Loop:
 		case itemList:
 			n = p.parseList()
 		case itemTable, itemLpTable:
-			n = p.parseTable()
+			// n = p.parseTable()
+			tmp := p.newParagraph(t.pos)
+			tmp.Nodes = p.parseText(p.next().val + p.scanLines())
+			n = tmp
 		case itemBlockQuote:
 			n = p.parseBlockQuote()
 		case itemIndent:
