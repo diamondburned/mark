@@ -215,6 +215,11 @@ func (n *CodeNode) Render() string {
 }
 
 func (p *parse) newCode(pos Pos, lang, text string) *CodeNode {
+	if text == "" {
+		lang = ""
+		text = lang
+	}
+
 	return &CodeNode{NodeType: NodeCode, Pos: pos, Lang: lang, Text: text}
 }
 
