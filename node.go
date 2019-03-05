@@ -545,7 +545,7 @@ func (p *parse) text(input string) string {
 	if opts.Fractions {
 		input = smartyfractions(input)
 	}
-	return escape(input, p.options)
+	return escape(input, opts)
 }
 
 // Helper escaper
