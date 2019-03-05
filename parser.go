@@ -273,9 +273,15 @@ func (p *parse) parseCodeBlock() *CodeNode {
 		codeStart := reGfmCode.FindStringSubmatch(token.val)
 		lang = codeStart[3]
 		text = token.val[len(codeStart[0]):]
+
+		if text == "" {
+			text = codeStart[3]
+			lang = ""
+		}
 	} else {
 		text = reCodeBlock.trim(token.val, "")
 	}
+
 	return p.newCode(token.pos, lang, text)
 }
 
